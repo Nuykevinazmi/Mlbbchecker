@@ -161,7 +161,6 @@ async function checkOneAccount(account) {
 }
 
 function updateTextareaCombos() {
-  // Update textarea sesuai sisa combos
   const remaining = combos.map(acc => `${acc.email}|${acc.password}`).join("\n");
   document.getElementById("combo").value = remaining;
 }
