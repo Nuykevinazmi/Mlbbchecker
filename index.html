@@ -160,21 +160,28 @@ async function checkOneAccount(account) {
   }
 }
 
+function updateTextareaCombos() {
+  // Update textarea sesuai sisa combos
+  const remaining = combos.map(acc => `${acc.email}|${acc.password}`).join("\n");
+  document.getElementById("combo").value = remaining;
+}
+
 async function startProcess() {
   stopRequested = false;
   startBtn.disabled = true;
   stopBtn.disabled = false;
   logEl.innerHTML = "";
-  currentIndex = 0;
-  const raw = document.getElementById("combo").value;
-  combos = parseCombos(raw);
+  combos = parseCombos(document.getElementById("combo").value);
+
   if(combos.length === 0) {
     appendLog("Tidak ada akun untuk dicek", "info");
     startBtn.disabled = false;
     stopBtn.disabled = true;
     return;
   }
+
   appendLog(`Mulai cek ${combos.length} akun. Klik CAPTCHA tiap akun.`, "info");
+  currentIndex = 0;
 
   while(currentIndex < combos.length) {
     if(stopRequested) {
@@ -183,9 +190,14 @@ async function startProcess() {
     }
     const acc = combos[currentIndex];
     await checkOneAccount(acc);
-    currentIndex++;
-    await new Promise(r => setTimeout(r, 200));
+
+    // Hapus akun yang sudah dicek dari combos dan update textarea
+    combos.splice(currentIndex, 1);
+    updateTextareaCombos();
+
+    // Jangan increment currentIndex karena array sudah berkurang
   }
+
   appendLog("Selesai", "info");
   statusEl.textContent = "Selesai";
   startBtn.disabled = false;
